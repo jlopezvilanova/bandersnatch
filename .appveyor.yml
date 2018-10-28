@@ -1,0 +1,80 @@
+environment:
+
+  matrix:
+
+    # For Python versions available on Appveyor, see
+    # http://www.appveyor.com/docs/installed-software#python
+    # The list here is complete (excluding Python 2.6, which
+    # isn't covered by this document) at the time of writing.
+    # 3.6 fcntl not present.
+    - PYTHON: "C:\\Python37-x64"
+    - PYTHON: "C:\\Python37"
+
+install:
+  # We need wheel installed to build wheels
+  - "%PYTHON%\\python.exe -m pip install wheel"
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  - "python --version"
+  - "pip install --upgrade certifi tox tox-venv"
+  - "pip freeze --all"
+  # Fix git SSL errors.
+  - "python -m certifi >cacert.txt"
+  - "set /p GIT_SSL_CAINFO=<cacert.txt"
+  - "set GIT_SSL_CAINFO"
+
+
+build: off
+
+cache:
+  - '%LOCALAPPDATA%\pip\Cache'
+
+
+test_script:
+    - ps: |
+        function should_run_tests {
+            if ("$env:APPVEYOR_PULL_REQUEST_NUMBER" -eq "") {
+                Write-Host "Not a pull request - running tests"
+                return $true
+            }
+            Write-Host "Pull request $env:APPVEYOR_PULL_REQUEST_NUMBER based on branch $env:APPVEYOR_REPO_BRANCH"
+            git fetch -q origin +refs/heads/$env:APPVEYOR_REPO_BRANCH
+            $changes = (git diff --name-only HEAD (git merge-base HEAD FETCH_HEAD))
+            Write-Host "Files changed:"
+            Write-Host $changes
+            $important = $changes | Where-Object { $_ -NotLike "*.rst" } |
+                                    Where-Object { $_ -NotLike "docs*" } |
+                                    Where-Object { $_ -NotLike "news*" } |
+                                    Where-Object { $_ -NotLike "*travis*" } |
+                                    Where-Object { $_ -NotLike ".github*" }
+            if (!$important) {
+                Write-Host "Only documentation changes - skipping tests"
+                return $false
+            }
+
+            Write-Host "Pull request $env:APPVEYOR_PULL_REQUEST_NUMBER alters code - running tests"
+            return $true
+        }
+
+        if (should_run_tests) {
+            # Shorten paths, workaround https://bugs.python.org/issue18199
+            subst T: $env:TEMP
+            $env:TEMP = "T:\"
+            $env:TMP = "T:\"
+            tox -e py -- -m unit -n 3
+        }
+
+after_test:
+  # This step builds your wheels.
+  # Again, you only need build.cmd if you're building C extensions for
+  # 64-bit Python 3.3/3.4. And you need to use %PYTHON% to get the correct
+  # interpreter
+  - "build.cmd %PYTHON%\\python.exe setup.py bdist_wheel"
+
+artifacts:
+  # bdist_wheel puts your built wheel in the dist directory
+  - path: dist\*
+
+#on_success:
+#  You can use this step to upload your artifacts to a public website.
+#  See Appveyor's documentation for more details. Or you can simply
+#  access your wheels from the Appveyor "artifacts" tab for your build.

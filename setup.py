@@ -1,8 +1,32 @@
 #!/usr/bin/env python3
 
+from typing import NamedTuple
+
 from setuptools import find_packages, setup
 
-from src.bandersnatch import __version__
+
+class _VersionInfo(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    release_level: str
+    serial: int
+
+    @property
+    def version_str(self) -> str:
+        release_level = f".{self.release_level}" if self.release_level else ""
+        return f"{self.major}.{self.minor}.{self.micro}{release_level}"
+
+
+__version_info__ = _VersionInfo(
+    major=3,
+    minor=0,
+    micro=0,
+    release_level="dev0",
+    serial=0,  # Not currently in use with Bandersnatch versioning
+)
+__version__ = __version_info__.version_str
+
 
 install_deps = ["aiodns", "aiohttp", "packaging", "requests", "setuptools", "xmlrpc2"]
 

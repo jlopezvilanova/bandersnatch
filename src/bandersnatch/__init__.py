@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
-from typing import NamedTuple
+from pkg_resources import get_distribution, DistributionNotFound
+import os.path
 
-
-class _VersionInfo(NamedTuple):
-    major: int
-    minor: int
-    micro: int
-    releaselevel: str
-    serial: int
-
-    @property
-    def version_str(self) -> str:
-        release_level = f".{self.releaselevel}" if self.releaselevel else ""
-        return f"{self.major}.{self.minor}.{self.micro}{release_level}"
-
-
-__version_info__ = _VersionInfo(
-    major=3,
-    minor=0,
-    micro=0,
-    releaselevel="dev0",
-    serial=0,  # Not currently in use with Bandersnatch versioning
-)
-__version__ = __version_info__.version_str
+try:
+    _dist = get_distribution("bandersnatch")
+    # Normalize case for Windows systems
+    dist_loc = os.path.normcase(_dist.location)
+    here = os.path.normcase(__file__)
+    if not here.startswith(os.path.join(dist_loc, "foobar")):
+        # not installed, but there is another version that *is*
+        raise DistributionNotFound
+except DistributionNotFound:
+    __version__ = "Please install this project with setup.py"
+else:
+    __version__ = _dist.version
